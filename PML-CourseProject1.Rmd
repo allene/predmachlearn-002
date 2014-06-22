@@ -1,0 +1,153 @@
+---
+title: "PML-CourseProject1"
+author: "B Allene"
+date: "Saturday, June 21, 2014"
+output: html_document
+---
+
+Predicting how barbell weight lifting exercise is performed.
+========================================================
+
+# Synopsis
+
+**Barbell exercises** provide an easy and effective way of targeting every major muscle groups in your body. there are more then 100 ways to perform Barbell weight lifting. Each method is concentrated on different muscle.
+
+**Human Activity Recognition (HAR)** The goal of HAR is to analyze the data available and recognize what activity the person under test is performing. 
+Human activity recognition becoming an important area of computer vision research. Its applications include surveillance systems, patient monitoring systems, and a variety of systems that involve interactions between persons and electronic devices.
+
+In recent years [**Internet of Things**](http://en.wikipedia.org/wiki/Internet_of_Things) is gaining critical mass and many [Wearable devices](http://en.wikipedia.org/wiki/Wearable_technology) with sensors are no more confined to science fictions  they are reality and soon become integral part of human lives in develop countries.
+
+One great example for wearable devices with fitted sensors is Fitness tracking devices. There are more then [25 Fitness Tracking devices](http://time.com/516/26-fitness-trackers-ranked-from-worst-to-first/) commercial devices available for public today ( 20th June 2014). These Fitness Tracking wristband can track various human activities and body records such as heart rate etc.
+
+One thing that people regularly do is quantify *how much* of a particular activity they do, but they rarely quantify *how well* they do it. Main objective of this analysis is to analyse data generated from accelerometers on the belt, forearm, arm, and dumbell of 6 participants while they perform barbell lifts in 5 different ways and predict which method of barbell they are performing.
+This analysis is performed 
+
+## Data
+
+Original dataset is available on [Groupware@LES] (http://groupware.les.inf.puc-rio.br/har). For this analysis I used the [training dataset](https://d396qusza40orc.cloudfront.net/predmachlearn/pml-training.csv) to train and validate my prediction model and [testing dataset](https://d396qusza40orc.cloudfront.net/predmachlearn/pml-testing.csv) to test my model.
+
+
+## Download data 
+Data is been down loaded using R `download.file` method.
+```{r}
+#setwd("/media/ssdp1/Coursera//2014-PracticalMachineLearning")
+
+#download.file("https://d396qusza40orc.cloudfront.net/predmachlearn/pml-training.csv","pml-training.csv","curl")
+#download.file("https://d396qusza40orc.cloudfront.net/predmachlearn/pml-testing.csv","pml-testing.csv","curl")
+
+```
+
+## Packages used for analysts
+
+[AppliedPredictiveModeling](http://cran.r-project.org/web/packages/AppliedPredictiveModeling/index.html) and [caret](http://cran.r-project.org/web/packages/caret/index.html)
+```{r results='hide'}
+#install.packages('AppliedPredictiveModeling')
+#install.packages('caret')
+#install.packages('e1071')
+library(AppliedPredictiveModeling)
+library(caret)
+```
+
+## Data Processing
+
+### 1. Loading data
+First and foremost, we need to split the data available into training and  test partitions to provide us honest assessments of the performance of our predictive models. In this case data is already split in to test and training.
+
+Training and test csv file are loaded using following R commands. 
+
+```{r}
+set.seed(116)
+training <- read.csv("pml-training.csv", header=TRUE, na.strings="NA")
+testing <- read.csv("pml-testing.csv", header=TRUE, na.strings="NA")
+```
+
+### 2. Exploratory findings
+Exploratory analysis is been performed on data to get good undestanding about the data. 
+Findings:
+- There are 160 columns available in training data
+- `classe` colum in training data contain actual barbell method code.
+- 19622 rows in Training dataset and 20 rows in testing dataset.
+
+```{r}
+names(training)
+head(training)
+names(testing)
+dim(training)
+dim(testing)
+
+```
+
+I tried to plot *obvious* variables against each other. 
+This plot shows relation between `roll_belt` and `pitch_belt` variables and these seems clear relation between the variables and the classe.
+Looking at the plot I realized that I don't need use all the columns of data to predict `classe`. 
+
+
+``` {r,cache=T}
+qplot(x=roll_belt,y=pitch_belt,col=classe,data=training)
+```
+
+### 3. Pre-processing data
+
+As part of cleaning, all columns with empty values and with "NULL" are are ignored as they are not good predictors. Also following columns are excluded as they contain meta data about the observation.
+- X
+- user_name
+- timestamp
+- new_window.
+Cleaned data contains only 54 columns
+```{r}
+allColumns <- names(training)
+excludeColumnsList <- grep("^X|user_name|timestamp|new_window|kurtosis|skewness|max|min|amplitude|var|avg|stddev",allColumns)
+
+cleanedTrainingData <- training[,-excludeColumnsList]
+cleanedTestingData <- testing[,-excludeColumnsList]
+dim(cleanedTrainingData)
+dim(cleanedTestingData)
+names(cleanedTestingData)
+```
+
+### 4.  Data splitting 
+Cleaned training data is further split in to *train* and *validate* data sets. My intention is to use train dataset to train my prediction model and validate it using validation dataset. Data split was done using `createDataPartition`. 70% of cleaned data is used as training dataset and 30% is used as validation dataset.
+
+```{r}
+trainingIndex = createDataPartition(cleanedTrainingData$classe,p=0.7,list=FALSE)
+modelTrain = cleanedTrainingData[trainingIndex,]
+modelValidate = cleanedTrainingData[-trainingIndex,]
+```
+
+### 5. Prediction Model Training
+I decided to start my predictions models using Random Forest models as in majority cases it performs very well. If my prediction accuracy is <70% then i wanted to other prediction models.
+
+```{r}
+timestamp()
+trainCtrl = trainControl(method = "cv", number = 4)
+randomForestPrediction <- train(classe ~ ., data=modelTrain, method="rf", trControl=trainCtrl)
+timestamp()
+randomForestPrediction
+```
+
+### 6. Check Out of Sample errors
+
+```{r}
+confusionMatrix(modelValidate $classe, predict(randomForestPrediction,modelValidate ))
+predictedValue <- predict(randomForestPrediction, modelValidate )
+1 - (sum(predictedValue == modelValidate$classe) / nrow(modelValidate))
+```
+Tested my model with validation data set and Accuracy is >99%.
+
+### 7. Applying Prediction model on test data
+My model predicted correctly over 99%. I decided to use this model to predict my test dataset.
+
+```{r}
+testPredictions<- predict(randomForestPrediction, newdata=cleanedTestingData)
+testPredictions
+```
+# Result
+ 
+I have submitted my prediction and all my answers were correct.
+In conclusion i used `train` method in random forest learning method.
+
+# References
+1.  [Addtional infor about Barbell weight lifting](http://www.barbell-exercises.com/exercises/index.html)
+2.  Human Activity Recognition [Wiki](http://en.wikipedia.org/wiki/Activity_recognition)
+3.  [Groupware@LES HAR](http://groupware.les.inf.puc-rio.br/har)
+4.  [Random Forest](http://cran.r-project.org/web/packages/randomForest/randomForest.pdf)

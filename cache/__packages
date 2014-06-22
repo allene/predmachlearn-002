@@ -1,0 +1,12 @@
+AppliedPredictiveModeling
+base
+caret
+datasets
+ggplot2
+graphics
+grDevices
+knitr
+lattice
+methods
+stats
+utils
